@@ -12,6 +12,7 @@
   "license": "ISC",
   "dependencies": {
     "axios": "^0.20.0",
+    "prompts": "^2.3.2",
     "puppeteer": "^5.3.1"
   }
 }

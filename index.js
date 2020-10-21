@@ -1,31 +1,80 @@
 const { Downloader } = require('./src/downloader')
 const puppeteer = require('puppeteer')
+const prompts = require('prompts')
 const fs = require('fs')
-
-const downloader = new Downloader()
-
-const dir = 'output';
 
 /**
  * This is really just hacked together
  */
 (async () => {
+  const dir = 'output'
+
+  const downloader = new Downloader()
+
+  let systems = await downloader.load()
+
+  let choices = [
+    {
+      title: 'ALL',
+      value: 'ALL',
+    }
+  ]
+  for (const systemKey in systems) {
+    choices.push({
+      title: systemKey,
+      value: systemKey,
+    })
+  }
+
+  choices = choices.sort((a, b) => {
+    return a.title.localeCompare(b.title)
+  })
+
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir)
+  }
+
+  const response = await prompts([
+    {
+      type: 'multiselect',
+      name: 'systems',
+      message: 'System to screenshot. Type \'all\' to screenshot all.',
+      choices: choices,
+    },
+    {
+      type: 'select',
+      name: 'filetype',
+      message: 'Screenshot filetype',
+      choices: [
+        { title: 'JPEG', value: 'jpg' },
+        { title: 'PNG', value: 'png', selected: true },
+      ],
+    },
+  ])
+
+  if (typeof response.systems !== 'undefined' && !response.systems.includes('ALL')) {
+    let filteredSystems = []
+
+    for (const systemKey in systems) {
+      if (response.systems.includes(systemKey)) {
+        filteredSystems[systemKey] = systems[systemKey]
+      }
+    }
+
+    systems = filteredSystems
   }
 
   const browser = await puppeteer.launch({
     headless: false,
   })
+
   const page = await browser.newPage()
   await page.setViewport({
     width: 1920,
     height: 1080
   })
 
-  const codes = await downloader.load()
-
-  for (let systemCode in codes) {
+  for (let systemCode in systems) {
     let patchedCode = systemCode
     if (patchedCode === 'NUL') {
       patchedCode = '_' + patchedCode
@@ -39,10 +88,10 @@ const dir = 'output';
 
     let exists = false
 
-    for (const code in codes[systemCode]) {
-      console.log('Accesing ' + codes[systemCode][code])
+    for (const code in systems[systemCode]) {
+      console.log('Accesing ' + systems[systemCode][code])
 
-      let filename = codes[systemCode][code] + '.png'
+      let filename = systems[systemCode][code] + '.' + response.filetype
 
       if (filename.substr(0, 3) === 'NUL') {
         filename = '_' + filename
@@ -61,22 +110,17 @@ const dir = 'output';
       })
 
       if (exists) {
-        console.log(codes[systemCode][code] + ' already downloaded.')
+        console.log(systems[systemCode][code] + ' already downloaded.')
         continue
       }
 
-      await page.goto('https://robertsspaceindustries.com/starmap?location=' + codes[systemCode][code] + '&system=' + systemCode)
+      await page.goto('https://robertsspaceindustries.com/starmap?location=' + systems[systemCode][code] + '&system=' + systemCode)
 
       await page.waitForSelector('.launch', {
         visible: true,
       })
-      /*  await page.waitForSelector('.launch-fullscreen', {
-          visible: true,
-        })*/
-      await page.click('.launch')
-      //await page.click('.launch-fullscreen')
 
-      //await page.waitForTimeout(10000);
+      await page.click('.launch')
 
       await page.waitForSelector('.sm-acknowledge', {
         visible: true,
@@ -84,7 +128,6 @@ const dir = 'output';
       await page.waitForSelector('label[for="sm-dont-show-acknowledgment"]', {
         visible: true,
       })
-      //await page.click('label[for="sm-dont-show-acknowledgment"]')
       await page.click('.sm-acknowledge')
 
       page.$('#sm-header-region').then(value => {
@@ -105,7 +148,6 @@ const dir = 'output';
       await page.waitForSelector('label[for="sm-dont-show-info"]', {
         visible: true,
       })
-      //await page.click('label[for="sm-dont-show-info"]')
       await page.click('.sm-continue')
 
       await page.waitForTimeout(3900)
