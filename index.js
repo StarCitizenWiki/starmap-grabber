@@ -38,7 +38,7 @@ const fs = require('fs')
     {
       type: 'multiselect',
       name: 'systems',
-      message: 'System to screenshot. Type \'all\' to screenshot all.',
+      message: 'Systems to screenshot.',
       choices: choices,
     },
     {
